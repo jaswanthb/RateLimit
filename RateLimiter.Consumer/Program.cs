@@ -1,39 +1,61 @@
-﻿using Microsoft.TeamFoundation.Build.WebApi;
-using Polly;
-using Polly.CircuitBreaker;
-using Polly.Retry;
-using System.Net.Http.Headers;
+﻿using Polly;
+using Polly.RateLimiting;
+using RateLimiter.Consumer;
+using System.Threading.RateLimiting;
 
 Console.WriteLine("Hello, World!");
 
-//HttpClient _httpClient;
-AsyncRetryPolicy _retryPolicy;
-AsyncCircuitBreakerPolicy _circuitBreakerPolicy;
-
-_retryPolicy = Policy
-            .Handle<HttpRequestException>()
-            .Or<RateLimitExceededException>() // Handle rate limit exception
-            .WaitAndRetryAsync(3, retryAttempt => TimeSpan.FromSeconds(10));
-
-_circuitBreakerPolicy = Policy
-    .Handle<HttpRequestException>()
-    .CircuitBreakerAsync(3, TimeSpan.FromMinutes(10));
-
-using HttpClient client = new();
-client.DefaultRequestHeaders.Accept.Clear();
-client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-
-for (int i = 0; i < 100; i++)
+var rlOptions = new FixedWindowRateLimiterOptions()
 {
-    await _circuitBreakerPolicy.ExecuteAsync(async () =>
+    AutoReplenishment = true,
+    QueueLimit = 10,
+    QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+    PermitLimit = 200,
+    Window = TimeSpan.FromMinutes(1)
+};
+
+var pipeLine = new ResiliencePipelineBuilder()
+                .AddConcurrencyLimiter(100, 50)
+                .AddRateLimiter(new FixedWindowRateLimiter(rlOptions))
+
+                //.AddRateLimiter(new SlidingWindowRateLimiter(rlOptions)) //for sliding ratelimiter
+                //.AddRateLimiter(new RateLimiterStrategyOptions // for concurrency ratelimiter
+                //{
+                //    DefaultRateLimiterOptions = new ConcurrencyLimiterOptions
+                //    {
+                //        PermitLimit = 10,
+                        
+                //    },
+                //    OnRejected = args =>
+                //    {
+                //        Console.WriteLine("Rate limit has been exceeded");
+                //        return default;
+                //    }
+                //})
+                .Build();
+
+try
+{
+    for (int i = 0; i < 100; i++)
     {
-        return await _retryPolicy.ExecuteAsync(async () =>
+        var rlWapper = new RateLimitAPIWrapper();
+        var result = await pipeLine.ExecuteAsync(async (token) => await rlWapper.CallRateLimitAPIWrapper(token));
+        if (!result.IsSuccessStatusCode && result.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
         {
-            var response = await client.GetAsync("https://localhost:7037/WeatherForecast");
-            Console.WriteLine(await response.Content.ReadAsStringAsync());
-            return await response.Content.ReadAsStringAsync();
-        });
-    });
+
+            var retryAfter = result.Headers.GetValues("X-RateLimit-Reset").First();
+
+            throw new RateLimiterRejectedException("", TimeSpan.FromSeconds(Convert.ToDouble(retryAfter)));
+        }
+    }
+}
+catch(RateLimiterRejectedException e)
+{
+    if (e.RetryAfter is TimeSpan retryAfter)
+    {
+        Console.WriteLine($"Retry After: {retryAfter}");
+    }
 }
 
 Console.WriteLine("Done with loop");
+

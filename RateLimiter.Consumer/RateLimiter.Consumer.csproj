@@ -10,6 +10,7 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.TeamFoundationServer.Client" Version="19.225.1" />
     <PackageReference Include="Polly" Version="8.4.2" />
+    <PackageReference Include="Polly.RateLimiting" Version="8.4.2" />
   </ItemGroup>
 
 </Project>
