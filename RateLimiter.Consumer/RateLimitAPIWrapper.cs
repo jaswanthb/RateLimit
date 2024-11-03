@@ -2,9 +2,12 @@
 
 internal class RateLimitAPIWrapper
 {
-    public async Task<HttpResponseMessage> CallRateLimitAPIWrapper(CancellationToken token)
+    public async Task<HttpResponseMessage> CallRateLimitAPIWrapper(CancellationToken token, int i)
     {
         var client = new HttpClient();
-        return await client.GetAsync("https://localhost:7037/WeatherForecast", token);
+        Console.WriteLine("calling api " + i + " time.\n");
+
+        //This api is fixed rate limited to 2 calls in 15 sec
+        return await client.GetAsync("https://localhost:7037/WeatherForecast", token); 
     }
 }

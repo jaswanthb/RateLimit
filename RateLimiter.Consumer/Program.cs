@@ -10,28 +10,12 @@ var rlOptions = new FixedWindowRateLimiterOptions()
     AutoReplenishment = true,
     QueueLimit = 10,
     QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
-    PermitLimit = 200,
+    PermitLimit = 2,
     Window = TimeSpan.FromMinutes(1)
 };
 
 var pipeLine = new ResiliencePipelineBuilder()
-                .AddConcurrencyLimiter(100, 50)
                 .AddRateLimiter(new FixedWindowRateLimiter(rlOptions))
-
-                //.AddRateLimiter(new SlidingWindowRateLimiter(rlOptions)) //for sliding ratelimiter
-                //.AddRateLimiter(new RateLimiterStrategyOptions // for concurrency ratelimiter
-                //{
-                //    DefaultRateLimiterOptions = new ConcurrencyLimiterOptions
-                //    {
-                //        PermitLimit = 10,
-                        
-                //    },
-                //    OnRejected = args =>
-                //    {
-                //        Console.WriteLine("Rate limit has been exceeded");
-                //        return default;
-                //    }
-                //})
                 .Build();
 
 try
@@ -39,12 +23,13 @@ try
     for (int i = 0; i < 100; i++)
     {
         var rlWapper = new RateLimitAPIWrapper();
-        var result = await pipeLine.ExecuteAsync(async (token) => await rlWapper.CallRateLimitAPIWrapper(token));
+        var result = await pipeLine.ExecuteAsync(async (token) => await rlWapper.CallRateLimitAPIWrapper(token, i));
         if (!result.IsSuccessStatusCode && result.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
         {
 
-            var retryAfter = result.Headers.GetValues("X-RateLimit-Reset").First();
+            //Need to figure out to read below header and reset retry time from the below header value
 
+            var retryAfter = result.Headers.GetValues("X-RateLimit-Reset").First();
             throw new RateLimiterRejectedException("", TimeSpan.FromSeconds(Convert.ToDouble(retryAfter)));
         }
     }
@@ -58,4 +43,3 @@ catch(RateLimiterRejectedException e)
 }
 
 Console.WriteLine("Done with loop");
-

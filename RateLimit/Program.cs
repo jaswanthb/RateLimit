@@ -15,14 +15,13 @@ builder.Services.AddRateLimiter(rl =>
     rl.AddFixedWindowLimiter("fixed", o =>
         {
             o.PermitLimit = 2;
-            o.Window = TimeSpan.FromSeconds(30);
-            //o.AutoReplenishment = true;
+            o.Window = TimeSpan.FromSeconds(15);
         });
     rl.OnRejected = (context, cancellationToken) =>
     {
         if (context.Lease.TryGetMetadata(MetadataName.RetryAfter, out var retryAfter))
         {
-           // context.HttpContext.Response.Headers.RetryAfter = retryAfter.TotalSeconds.ToString();
+            //Adding time header, when to retry this api
             context.HttpContext.Response.Headers.Add("X-RateLimit-Reset", retryAfter.TotalSeconds.ToString());
         }
 
