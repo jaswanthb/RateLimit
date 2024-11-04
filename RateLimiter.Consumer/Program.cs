@@ -11,7 +11,7 @@ var rlOptions = new FixedWindowRateLimiterOptions()
     QueueLimit = 10,
     QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
     PermitLimit = 2,
-    Window = TimeSpan.FromMinutes(1)
+    Window = TimeSpan.FromSeconds(20)
 };
 
 var pipeLine = new ResiliencePipelineBuilder()
@@ -22,8 +22,10 @@ try
 {
     for (int i = 0; i < 100; i++)
     {
+        Console.WriteLine("Before: " + DateTime.Now);
         var rlWapper = new RateLimitAPIWrapper();
         var result = await pipeLine.ExecuteAsync(async (token) => await rlWapper.CallRateLimitAPIWrapper(token, i));
+        Console.WriteLine("After: " + DateTime.Now);
         if (!result.IsSuccessStatusCode && result.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
         {
 
