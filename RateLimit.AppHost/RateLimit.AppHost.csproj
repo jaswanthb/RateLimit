@@ -15,6 +15,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\RateLimit.Consumer.Polly\RateLimit.Consumer.Polly.csproj" />
+    <ProjectReference Include="..\RateLimit.Framework.Consumer\RateLimit.Framework.Consumer.csproj" />
     <ProjectReference Include="..\RateLimit\RateLimit.csproj" />
   </ItemGroup>
 
