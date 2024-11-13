@@ -3,6 +3,8 @@ using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.AddServiceDefaults();
+
 // Add services to the container.
 
 builder.Services.AddControllers();
@@ -22,7 +24,8 @@ builder.Services.AddRateLimiter(rl =>
         if (context.Lease.TryGetMetadata(MetadataName.RetryAfter, out var retryAfter))
         {
             //Adding time header, when to retry this api
-            context.HttpContext.Response.Headers.Add("X-RateLimit-Reset", retryAfter.TotalSeconds.ToString());
+            int randomSec = new Random().Next(1, 20);
+            context.HttpContext.Response.Headers.Add("X-RateLimit-Reset", (retryAfter.TotalSeconds + randomSec).ToString());
         }
 
         context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
@@ -33,6 +36,8 @@ builder.Services.AddRateLimiter(rl =>
 });
 
 var app = builder.Build();
+
+app.MapDefaultEndpoints();
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
